@@ -1,0 +1,79 @@
+// Copyright 2026 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+edition = "2024";
+
+package monax.kubernetes;
+
+import "google/protobuf/go_features.proto";
+
+option features.(pb.go).api_level = API_OPAQUE;
+option go_package = "github.com/openconfig/monax/runtime/kubernetesruntime/proto";
+
+message KubernetesRuntimeParameters {
+  string name = 1;
+  KubernetesHandlerParameters kubernetes = 2;
+}
+
+message KubernetesHandlerParameters {
+  string kubeconfig_path = 1;
+  string docker_host_url =
+      2;  // required if dockerfile_path is set in any component
+  string docker_cert_path =
+      3;  // required if dockerfile_path is set in any component
+
+  // The service.spec.type field in the Kubernetes Service object.
+  // If unset, defaults to NodePort to support local 'kind' clusters that do not
+  // have a load balancer controller (like MetalLB).
+  enum ServiceType {
+    SERVICE_TYPE_UNSPECIFIED = 0;
+    SERVICE_TYPE_NODE_PORT = 1;
+    SERVICE_TYPE_LOAD_BALANCER = 2;
+  }
+  ServiceType service_type = 4 [default = SERVICE_TYPE_NODE_PORT];
+}
+
+message KubernetesComponentParameters {
+  string deployment_path = 1;
+  string service_path = 2;
+  DockerBuildParameters docker =
+      3;  // optional, for building images from a Dockerfile
+  map<string, string> vars = 4;
+
+  // When true, wait for the replica count to be expected value. The replica
+  // count represents the number of pods that should be in a healthy "running"
+  // state.
+  // Defaults to true if unset.
+  bool wait_for_deployment = 5 [default = true];
+
+  // The waiting timeout for the deployment to be in state "running" during
+  // Start(). Only used if wait_for_deployment is true.
+  // Defaults to 10 minutes if unset.
+  int64 wait_for_deployment_timeout_sec = 6 [default = 600];  // 10min
+
+  // When true, wait for the service to return an IP address during Start().
+  // Defaults to true if unset.
+  bool wait_for_service = 7 [default = true];
+
+  // Timeout for waiting for the service to return an IP address during Start.
+  // Only used if wait_for_service is true.
+  // Defaults to 5 minutes if unset.
+  int64 wait_for_service_timeout_sec = 8 [default = 300];  // 5min
+}
+
+message DockerBuildParameters {
+  string context_path = 1;
+  string dockerfile_path = 2;  // relative path to the Dockerfile from the
+                               // context_path, defaults to "Dockerfile"
+}

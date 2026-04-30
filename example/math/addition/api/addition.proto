@@ -1,0 +1,39 @@
+// Copyright 2026 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+edition = "2024";
+
+package monax.example.addition;
+
+import "google/protobuf/go_features.proto";
+
+option features.(pb.go).api_level = API_OPAQUE;
+option go_package = "github.com/openconfig/monax/example/math/addition/api";
+
+service Addition {
+  // Receives two terms and replies with the sum.
+  rpc Add(AddRequest) returns (AddResponse);
+}
+
+message AddRequest {
+  // The number that the addend is added to.
+  int64 augend = 1;
+  // The number to be added to the augend.
+  int64 addend = 2;
+}
+
+message AddResponse {
+  // The sum of the augend and addend.
+  int64 sum = 1;
+}

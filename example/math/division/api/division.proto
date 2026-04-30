@@ -1,0 +1,41 @@
+// Copyright 2026 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+edition = "2024";
+
+package monax.example.division;
+
+import "google/protobuf/go_features.proto";
+
+option features.(pb.go).api_level = API_OPAQUE;
+option go_package = "github.com/openconfig/monax/example/math/division/api";
+
+service Division {
+  // Receives two terms and replies with the quotient.
+  rpc Divide(DivideRequest) returns (DivideResponse);
+}
+
+message DivideRequest {
+  // The number that is divided by the divisor.
+  int64 dividend = 1;
+  // The number that divides the dividend.
+  int64 divisor = 2;
+}
+
+message DivideResponse {
+  // The whole number result of dividing the dividend by the divisor.
+  int64 quotient = 1;
+  // The remainder of the division.
+  int64 remainder = 2;
+}

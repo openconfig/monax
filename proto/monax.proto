@@ -1,0 +1,96 @@
+// Copyright 2026 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+edition = "2024";
+
+package monax;
+
+import "google/protobuf/any.proto";
+import "google/protobuf/go_features.proto";
+
+option features.(pb.go).api_level = API_OPAQUE;
+option go_package = "github.com/openconfig/monax/proto";
+
+// AbstractSut describes the top-level interface dependencies of a test.  These
+// are the interfaces that the test will exercise directly in order to perform
+// its validation.  Using the abstract SUT specification, Monax will create a
+// SUT that consists of one or more components that satisfy the dependencies
+// listed here.  If any of those components have dependencies of their own, the
+// SUT will include any additional components necessary to also satisfy those
+// transitive dependencies.  Only direct dependencies of the test should be
+// listed here.
+message AbstractSut {
+  repeated Interface required_interfaces = 1;
+}
+
+// Library describes the components available for inclusion in a SUT.  Monax may
+// include any of these components in the SUT in order to satisfy direct and
+// transitive dependencies.  The library must not contain duplicate
+// implementations of interfaces, unsatisfied dependencies, or cyclic
+// dependencies between components.
+message Library {
+  repeated Component components = 1;
+  repeated string libraries = 2;  // paths to other libraries to include
+}
+
+// Component describes an element available for inclusion in the SUT in order to
+// satisfy direct or transitive dependencies.  A component may represent a
+// single entity or an aggregation of entities.
+message Component {
+  string id = 1;
+  string kind = 2;
+  repeated Interface provided_interfaces = 3;
+  repeated Interface required_interfaces = 4;
+  .google.protobuf.Any parameters = 5;
+}
+
+// Interface describes a typed communication boundary between components.
+message Interface {
+  reserved 6;
+
+  // name is a user supplied string to uniquely identify an interface within
+  // a component.
+  string name = 1;
+  oneof type {
+    Dhcp dhcp = 2;
+    Grpc grpc = 3;
+    Http http = 4;
+    Https https = 5;
+  }
+}
+
+// Dhcp describes a DHCP interface.
+message Dhcp {
+  string service_name = 1;
+}
+
+// Grpc describes a gRPC interface.
+message Grpc {
+  string service_name = 1;
+}
+
+// Http describes an HTTP interface.
+message Http {
+  string service_name = 1;
+}
+
+// Https describes an HTTPS interface.
+message Https {
+  string service_name = 1;
+}
+
+// RuntimeParameters describes the parameters used to configure the runtime.
+message RuntimeParameters {
+  .google.protobuf.Any parameters = 1;
+}
