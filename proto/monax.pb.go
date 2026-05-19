@@ -1072,7 +1072,7 @@ const file_monax_proto_rawDesc = "" +
 	"\x11RuntimeParameters\x124\n" +
 	"\n" +
 	"parameters\x18\x01 \x01(\v2\x14.google.protobuf.AnyR\n" +
-	"parametersB+Z!github.com/openconfig/monax/proto\x92\x03\x05\xd2>\x02\x10\x03b\beditionsp\xe9\a"
+	"parametersB+Z!github.com/openconfig/monax/proto\x92\x03\x05\xd2>\x02\x10\x03b\beditionsp\xe8\a"
 
 var file_monax_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_monax_proto_goTypes = []any{

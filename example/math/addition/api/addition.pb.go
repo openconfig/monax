@@ -230,7 +230,7 @@ const file_addition_proto_rawDesc = "" +
 	"\vAddResponse\x12\x10\n" +
 	"\x03sum\x18\x01 \x01(\x03R\x03sum2Z\n" +
 	"\bAddition\x12N\n" +
-	"\x03Add\x12\".monax.example.addition.AddRequest\x1a#.monax.example.addition.AddResponseB?Z5github.com/openconfig/monax/example/math/addition/api\x92\x03\x05\xd2>\x02\x10\x03b\beditionsp\xe9\a"
+	"\x03Add\x12\".monax.example.addition.AddRequest\x1a#.monax.example.addition.AddResponseB?Z5github.com/openconfig/monax/example/math/addition/api\x92\x03\x05\xd2>\x02\x10\x03b\beditionsp\xe8\a"
 
 var file_addition_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_addition_proto_goTypes = []any{

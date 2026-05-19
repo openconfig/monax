@@ -15,7 +15,7 @@
 # proto-file: proto/monax.proto
 # proto-message: monax.Library
 
-libraries: "addition/deploy/kubernetes.txtpb"
-libraries: "subtraction/deploy/kubernetes.txtpb"
-libraries: "multiplication/deploy/kubernetes.txtpb"
-libraries: "division/deploy/kubernetes.txtpb"
+libraries: "../addition/deploy/kubernetes.txtpb"
+libraries: "../subtraction/deploy/kubernetes.txtpb"
+libraries: "../multiplication/deploy/kubernetes.txtpb"
+libraries: "../division/deploy/kubernetes.txtpb"

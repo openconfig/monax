@@ -202,7 +202,10 @@ func TestReadLibrary(t *testing.T) {
 				Id: proto.String("A"),
 			}.Build(),
 		},
-		Libraries: []string{"library2.txtpb", "tmp/library3.txtpb"},
+		Libraries: []string{
+			"library2.txtpb",
+			"tmp/library3.txtpb",
+		},
 	}.Build()
 	recursiveLibraryPath := marshalAt(t, recursiveDir, "recursive_library.txtpb", recursiveLibrary)
 	recursiveLibraryResolved := monaxpb.Library_builder{
@@ -222,6 +225,30 @@ func TestReadLibrary(t *testing.T) {
 	notLibraryPath := marshal(t, "not_library.txtpb", monaxpb.Component_builder{
 		Id: proto.String("bad"),
 	}.Build())
+
+	duplicateLibDir := t.TempDir()
+	duplicateSubLib := monaxpb.Library_builder{
+		Components: []*monaxpb.Component{
+			monaxpb.Component_builder{
+				Id: proto.String("D"),
+			}.Build(),
+		},
+	}.Build()
+	marshalAt(t, duplicateLibDir, "sub/lib.txtpb", duplicateSubLib)
+	duplicateMainLib := monaxpb.Library_builder{
+		Libraries: []string{
+			"sub/lib.txtpb",
+			"sub/../sub/lib.txtpb",
+		},
+	}.Build()
+	duplicateMainLibPath := marshalAt(t, duplicateLibDir, "duplicate_main.txtpb", duplicateMainLib)
+	duplicateMainResolved := monaxpb.Library_builder{
+		Components: []*monaxpb.Component{
+			monaxpb.Component_builder{
+				Id: proto.String("D"),
+			}.Build(),
+		},
+	}.Build()
 
 	tests := map[string]struct {
 		config     *Config
@@ -273,6 +300,17 @@ func TestReadLibrary(t *testing.T) {
 					"A": recursiveDir,
 					"B": recursiveDir,
 					"C": filepath.Join(recursiveDir, "tmp"),
+				},
+			},
+		},
+		"pass with duplicate library via relative path": {
+			config: &Config{
+				LibraryPath: duplicateMainLibPath,
+			},
+			wantConfig: &Config{
+				Library: duplicateMainResolved,
+				componentBaseDirByID: map[string]string{
+					"D": filepath.Join(duplicateLibDir, "sub"),
 				},
 			},
 		},

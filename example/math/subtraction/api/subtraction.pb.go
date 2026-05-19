@@ -233,7 +233,7 @@ const file_subtraction_proto_rawDesc = "" +
 	"difference\x18\x01 \x01(\x03R\n" +
 	"difference2r\n" +
 	"\vSubtraction\x12c\n" +
-	"\bSubtract\x12*.monax.example.subtraction.SubtractRequest\x1a+.monax.example.subtraction.SubtractResponseBBZ8github.com/openconfig/monax/example/math/subtraction/api\x92\x03\x05\xd2>\x02\x10\x03b\beditionsp\xe9\a"
+	"\bSubtract\x12*.monax.example.subtraction.SubtractRequest\x1a+.monax.example.subtraction.SubtractResponseBBZ8github.com/openconfig/monax/example/math/subtraction/api\x92\x03\x05\xd2>\x02\x10\x03b\beditionsp\xe8\a"
 
 var file_subtraction_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_subtraction_proto_goTypes = []any{

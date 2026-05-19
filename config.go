@@ -150,7 +150,13 @@ func readAbstractSUT(config *Config) error {
 // resolveLibraries reads the library at the path, injects textproto paths into
 // components, appends the components to the components in the baseLibrary, and
 // recursively does the same for referenced libraries.
-func resolveLibraries(config *Config, libraryPath string) error {
+func resolveLibraries(config *Config, libraryPath string, visited map[string]bool) error {
+	libraryPath = filepath.Clean(libraryPath)
+	if visited[libraryPath] {
+		return nil
+	}
+	visited[libraryPath] = true
+
 	currentLibrary := new(monaxpb.Library)
 	if err := unmarshal(libraryPath, currentLibrary); err != nil {
 		return err
@@ -168,7 +174,7 @@ func resolveLibraries(config *Config, libraryPath string) error {
 		if !filepath.IsAbs(nextLibraryPath) {
 			nextLibraryPath = filepath.Join(libraryDir, nextLibraryPath)
 		}
-		if err := resolveLibraries(config, nextLibraryPath); err != nil {
+		if err := resolveLibraries(config, nextLibraryPath, visited); err != nil {
 			return err
 		}
 	}
@@ -183,7 +189,7 @@ func readLibrary(config *Config) error {
 	if config.Library == nil {
 		config.Library = new(monaxpb.Library)
 		config.componentBaseDirByID = make(map[string]string)
-		if err := resolveLibraries(config, config.LibraryPath); err != nil {
+		if err := resolveLibraries(config, config.LibraryPath, make(map[string]bool)); err != nil {
 			return err
 		}
 	}

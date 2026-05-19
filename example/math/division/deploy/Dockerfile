@@ -33,7 +33,6 @@
 # IPv4 Bogon IP Address ranges included above as an example.
 # See https://ipinfo.io/bogon for the full list, including IPv6 ranges.
 
-
 FROM golang
 
 WORKDIR /app
@@ -63,13 +62,15 @@ RUN chmod 755 -R /usr/local/bin
 RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
 RUN go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.1
 
-COPY ./ .
+COPY ./division .
+COPY ./subtraction ../subtraction
+COPY ./addition ../addition
 
 RUN go mod tidy
 RUN go mod download
 
 RUN mkdir /app/out
-RUN cgo_enabled=0 goos=linux go build -o /app/out ./example/math/division/...
+RUN cgo_enabled=0 goos=linux go build -o /app/out ./...
 
 USER 1000:1000
 

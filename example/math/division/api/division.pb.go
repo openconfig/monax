@@ -261,7 +261,7 @@ const file_division_proto_rawDesc = "" +
 	"\bquotient\x18\x01 \x01(\x03R\bquotient\x12\x1c\n" +
 	"\tremainder\x18\x02 \x01(\x03R\tremainder2c\n" +
 	"\bDivision\x12W\n" +
-	"\x06Divide\x12%.monax.example.division.DivideRequest\x1a&.monax.example.division.DivideResponseB?Z5github.com/openconfig/monax/example/math/division/api\x92\x03\x05\xd2>\x02\x10\x03b\beditionsp\xe9\a"
+	"\x06Divide\x12%.monax.example.division.DivideRequest\x1a&.monax.example.division.DivideResponseB?Z5github.com/openconfig/monax/example/math/division/api\x92\x03\x05\xd2>\x02\x10\x03b\beditionsp\xe8\a"
 
 var file_division_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_division_proto_goTypes = []any{

@@ -64,6 +64,7 @@ func main() {
 	newRuntimeFn := kubernetesruntime.New
 
 	var err error
+	fmt.Println("Initializing Monax SUT...")
 	sut, err = monax.New(ctx, &config, newRuntimeFn)
 	if err != nil {
 		log.ExitContextf(ctx, "Failed to create Monax SUT: %v", err)

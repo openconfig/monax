@@ -186,20 +186,22 @@ func (b0 KubernetesRuntimeParameters_builder) Build() *KubernetesRuntimeParamete
 }
 
 type KubernetesHandlerParameters struct {
-	state                     protoimpl.MessageState                  `protogen:"opaque.v1"`
-	xxx_hidden_KubeconfigPath *string                                 `protobuf:"bytes,1,opt,name=kubeconfig_path,json=kubeconfigPath"`
-	xxx_hidden_DockerHostUrl  *string                                 `protobuf:"bytes,2,opt,name=docker_host_url,json=dockerHostUrl"`
-	xxx_hidden_DockerCertPath *string                                 `protobuf:"bytes,3,opt,name=docker_cert_path,json=dockerCertPath"`
-	xxx_hidden_ServiceType    KubernetesHandlerParameters_ServiceType `protobuf:"varint,4,opt,name=service_type,json=serviceType,enum=monax.kubernetes.KubernetesHandlerParameters_ServiceType,def=1"`
-	XXX_raceDetectHookData    protoimpl.RaceDetectHookData
-	XXX_presence              [1]uint32
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	state                             protoimpl.MessageState                  `protogen:"opaque.v1"`
+	xxx_hidden_KubeconfigPath         *string                                 `protobuf:"bytes,1,opt,name=kubeconfig_path,json=kubeconfigPath"`
+	xxx_hidden_DockerHostUrl          *string                                 `protobuf:"bytes,2,opt,name=docker_host_url,json=dockerHostUrl,def=unix:///var/run/docker.sock"`
+	xxx_hidden_DockerCertPath         *string                                 `protobuf:"bytes,3,opt,name=docker_cert_path,json=dockerCertPath"`
+	xxx_hidden_ServiceType            KubernetesHandlerParameters_ServiceType `protobuf:"varint,4,opt,name=service_type,json=serviceType,enum=monax.kubernetes.KubernetesHandlerParameters_ServiceType,def=1"`
+	xxx_hidden_ImageRepositoryAddress *string                                 `protobuf:"bytes,5,opt,name=image_repository_address,json=imageRepositoryAddress"`
+	XXX_raceDetectHookData            protoimpl.RaceDetectHookData
+	XXX_presence                      [1]uint32
+	unknownFields                     protoimpl.UnknownFields
+	sizeCache                         protoimpl.SizeCache
 }
 
 // Default values for KubernetesHandlerParameters fields.
 const (
-	Default_KubernetesHandlerParameters_ServiceType = KubernetesHandlerParameters_SERVICE_TYPE_NODE_PORT
+	Default_KubernetesHandlerParameters_DockerHostUrl = string("unix:///var/run/docker.sock")
+	Default_KubernetesHandlerParameters_ServiceType   = KubernetesHandlerParameters_SERVICE_TYPE_NODE_PORT
 )
 
 func (x *KubernetesHandlerParameters) Reset() {
@@ -239,12 +241,14 @@ func (x *KubernetesHandlerParameters) GetKubeconfigPath() string {
 
 func (x *KubernetesHandlerParameters) GetDockerHostUrl() string {
 	if x != nil {
-		if x.xxx_hidden_DockerHostUrl != nil {
-			return *x.xxx_hidden_DockerHostUrl
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 1) {
+			if x.xxx_hidden_DockerHostUrl != nil {
+				return *x.xxx_hidden_DockerHostUrl
+			}
+			return Default_KubernetesHandlerParameters_DockerHostUrl
 		}
-		return ""
 	}
-	return ""
+	return Default_KubernetesHandlerParameters_DockerHostUrl
 }
 
 func (x *KubernetesHandlerParameters) GetDockerCertPath() string {
@@ -266,24 +270,39 @@ func (x *KubernetesHandlerParameters) GetServiceType() KubernetesHandlerParamete
 	return Default_KubernetesHandlerParameters_ServiceType
 }
 
+func (x *KubernetesHandlerParameters) GetImageRepositoryAddress() string {
+	if x != nil {
+		if x.xxx_hidden_ImageRepositoryAddress != nil {
+			return *x.xxx_hidden_ImageRepositoryAddress
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *KubernetesHandlerParameters) SetKubeconfigPath(v string) {
 	x.xxx_hidden_KubeconfigPath = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
 }
 
 func (x *KubernetesHandlerParameters) SetDockerHostUrl(v string) {
 	x.xxx_hidden_DockerHostUrl = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
 }
 
 func (x *KubernetesHandlerParameters) SetDockerCertPath(v string) {
 	x.xxx_hidden_DockerCertPath = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
 }
 
 func (x *KubernetesHandlerParameters) SetServiceType(v KubernetesHandlerParameters_ServiceType) {
 	x.xxx_hidden_ServiceType = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
+}
+
+func (x *KubernetesHandlerParameters) SetImageRepositoryAddress(v string) {
+	x.xxx_hidden_ImageRepositoryAddress = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
 }
 
 func (x *KubernetesHandlerParameters) HasKubeconfigPath() bool {
@@ -314,6 +333,13 @@ func (x *KubernetesHandlerParameters) HasServiceType() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
+func (x *KubernetesHandlerParameters) HasImageRepositoryAddress() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
 func (x *KubernetesHandlerParameters) ClearKubeconfigPath() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_KubeconfigPath = nil
@@ -321,7 +347,6 @@ func (x *KubernetesHandlerParameters) ClearKubeconfigPath() {
 
 func (x *KubernetesHandlerParameters) ClearDockerHostUrl() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_DockerHostUrl = nil
 }
 
 func (x *KubernetesHandlerParameters) ClearDockerCertPath() {
@@ -333,13 +358,26 @@ func (x *KubernetesHandlerParameters) ClearServiceType() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
 }
 
+func (x *KubernetesHandlerParameters) ClearImageRepositoryAddress() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_ImageRepositoryAddress = nil
+}
+
 type KubernetesHandlerParameters_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	KubeconfigPath *string
+	// This is the default Linux value for reference.
 	DockerHostUrl  *string
 	DockerCertPath *string
 	ServiceType    *KubernetesHandlerParameters_ServiceType
+	// The address of the container registry to push images to (e.g.,
+	// "docker.io/my-repo").
+	// If set, the Docker image will be pushed to this address instead of being
+	// loaded into a kind cluster.
+	// However, if the image name already includes a repository address, this
+	// field will be ignored.
+	ImageRepositoryAddress *string
 }
 
 func (b0 KubernetesHandlerParameters_builder) Build() *KubernetesHandlerParameters {
@@ -347,20 +385,24 @@ func (b0 KubernetesHandlerParameters_builder) Build() *KubernetesHandlerParamete
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.KubeconfigPath != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
 		x.xxx_hidden_KubeconfigPath = b.KubeconfigPath
 	}
 	if b.DockerHostUrl != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
 		x.xxx_hidden_DockerHostUrl = b.DockerHostUrl
 	}
 	if b.DockerCertPath != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
 		x.xxx_hidden_DockerCertPath = b.DockerCertPath
 	}
 	if b.ServiceType != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
 		x.xxx_hidden_ServiceType = *b.ServiceType
+	}
+	if b.ImageRepositoryAddress != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		x.xxx_hidden_ImageRepositoryAddress = b.ImageRepositoryAddress
 	}
 	return m0
 }
@@ -662,12 +704,19 @@ func (b0 KubernetesComponentParameters_builder) Build() *KubernetesComponentPara
 type DockerBuildParameters struct {
 	state                     protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_ContextPath    *string                `protobuf:"bytes,1,opt,name=context_path,json=contextPath"`
-	xxx_hidden_DockerfilePath *string                `protobuf:"bytes,2,opt,name=dockerfile_path,json=dockerfilePath"`
+	xxx_hidden_DockerfilePath *string                `protobuf:"bytes,2,opt,name=dockerfile_path,json=dockerfilePath,def=Dockerfile"`
+	xxx_hidden_BuildImage     bool                   `protobuf:"varint,3,opt,name=build_image,json=buildImage"`
+	xxx_hidden_LoadToKind     bool                   `protobuf:"varint,4,opt,name=load_to_kind,json=loadToKind"`
 	XXX_raceDetectHookData    protoimpl.RaceDetectHookData
 	XXX_presence              [1]uint32
 	unknownFields             protoimpl.UnknownFields
 	sizeCache                 protoimpl.SizeCache
 }
+
+// Default values for DockerBuildParameters fields.
+const (
+	Default_DockerBuildParameters_DockerfilePath = string("Dockerfile")
+)
 
 func (x *DockerBuildParameters) Reset() {
 	*x = DockerBuildParameters{}
@@ -706,22 +755,48 @@ func (x *DockerBuildParameters) GetContextPath() string {
 
 func (x *DockerBuildParameters) GetDockerfilePath() string {
 	if x != nil {
-		if x.xxx_hidden_DockerfilePath != nil {
-			return *x.xxx_hidden_DockerfilePath
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 1) {
+			if x.xxx_hidden_DockerfilePath != nil {
+				return *x.xxx_hidden_DockerfilePath
+			}
+			return Default_DockerBuildParameters_DockerfilePath
 		}
-		return ""
 	}
-	return ""
+	return Default_DockerBuildParameters_DockerfilePath
+}
+
+func (x *DockerBuildParameters) GetBuildImage() bool {
+	if x != nil {
+		return x.xxx_hidden_BuildImage
+	}
+	return false
+}
+
+func (x *DockerBuildParameters) GetLoadToKind() bool {
+	if x != nil {
+		return x.xxx_hidden_LoadToKind
+	}
+	return false
 }
 
 func (x *DockerBuildParameters) SetContextPath(v string) {
 	x.xxx_hidden_ContextPath = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
 }
 
 func (x *DockerBuildParameters) SetDockerfilePath(v string) {
 	x.xxx_hidden_DockerfilePath = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+}
+
+func (x *DockerBuildParameters) SetBuildImage(v bool) {
+	x.xxx_hidden_BuildImage = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+}
+
+func (x *DockerBuildParameters) SetLoadToKind(v bool) {
+	x.xxx_hidden_LoadToKind = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
 }
 
 func (x *DockerBuildParameters) HasContextPath() bool {
@@ -738,6 +813,20 @@ func (x *DockerBuildParameters) HasDockerfilePath() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
+func (x *DockerBuildParameters) HasBuildImage() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *DockerBuildParameters) HasLoadToKind() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
 func (x *DockerBuildParameters) ClearContextPath() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_ContextPath = nil
@@ -745,14 +834,30 @@ func (x *DockerBuildParameters) ClearContextPath() {
 
 func (x *DockerBuildParameters) ClearDockerfilePath() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_DockerfilePath = nil
+}
+
+func (x *DockerBuildParameters) ClearBuildImage() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_BuildImage = false
+}
+
+func (x *DockerBuildParameters) ClearLoadToKind() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_LoadToKind = false
 }
 
 type DockerBuildParameters_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	ContextPath    *string
+	// The directory containing the service source code. Only files under this
+	// directory can be used during the Docker build process.
+	// Relative path from the Component txtpb file.
+	ContextPath *string
+	// The Dockerfile to use for the Docker build process.
+	// Relative path from the context_path.
 	DockerfilePath *string
+	BuildImage     *bool
+	LoadToKind     *bool
 }
 
 func (b0 DockerBuildParameters_builder) Build() *DockerBuildParameters {
@@ -760,12 +865,20 @@ func (b0 DockerBuildParameters_builder) Build() *DockerBuildParameters {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.ContextPath != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
 		x.xxx_hidden_ContextPath = b.ContextPath
 	}
 	if b.DockerfilePath != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
 		x.xxx_hidden_DockerfilePath = b.DockerfilePath
+	}
+	if b.BuildImage != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
+		x.xxx_hidden_BuildImage = *b.BuildImage
+	}
+	if b.LoadToKind != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		x.xxx_hidden_LoadToKind = *b.LoadToKind
 	}
 	return m0
 }
@@ -779,12 +892,13 @@ const file_runtime_parameters_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12M\n" +
 	"\n" +
 	"kubernetes\x18\x02 \x01(\v2-.monax.kubernetes.KubernetesHandlerParametersR\n" +
-	"kubernetes\"\xf7\x02\n" +
+	"kubernetes\"\xce\x03\n" +
 	"\x1bKubernetesHandlerParameters\x12'\n" +
-	"\x0fkubeconfig_path\x18\x01 \x01(\tR\x0ekubeconfigPath\x12&\n" +
-	"\x0fdocker_host_url\x18\x02 \x01(\tR\rdockerHostUrl\x12(\n" +
+	"\x0fkubeconfig_path\x18\x01 \x01(\tR\x0ekubeconfigPath\x12C\n" +
+	"\x0fdocker_host_url\x18\x02 \x01(\t:\x1bunix:///var/run/docker.sockR\rdockerHostUrl\x12(\n" +
 	"\x10docker_cert_path\x18\x03 \x01(\tR\x0edockerCertPath\x12t\n" +
-	"\fservice_type\x18\x04 \x01(\x0e29.monax.kubernetes.KubernetesHandlerParameters.ServiceType:\x16SERVICE_TYPE_NODE_PORTR\vserviceType\"g\n" +
+	"\fservice_type\x18\x04 \x01(\x0e29.monax.kubernetes.KubernetesHandlerParameters.ServiceType:\x16SERVICE_TYPE_NODE_PORTR\vserviceType\x128\n" +
+	"\x18image_repository_address\x18\x05 \x01(\tR\x16imageRepositoryAddress\"g\n" +
 	"\vServiceType\x12\x1c\n" +
 	"\x18SERVICE_TYPE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16SERVICE_TYPE_NODE_PORT\x10\x01\x12\x1e\n" +
@@ -800,10 +914,15 @@ const file_runtime_parameters_proto_rawDesc = "" +
 	"\x1cwait_for_service_timeout_sec\x18\b \x01(\x03:\x03300R\x18waitForServiceTimeoutSec\x1a7\n" +
 	"\tVarsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"c\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xb2\x01\n" +
 	"\x15DockerBuildParameters\x12!\n" +
-	"\fcontext_path\x18\x01 \x01(\tR\vcontextPath\x12'\n" +
-	"\x0fdockerfile_path\x18\x02 \x01(\tR\x0edockerfilePathBEZ;github.com/openconfig/monax/runtime/kubernetesruntime/proto\x92\x03\x05\xd2>\x02\x10\x03b\beditionsp\xe9\a"
+	"\fcontext_path\x18\x01 \x01(\tR\vcontextPath\x123\n" +
+	"\x0fdockerfile_path\x18\x02 \x01(\t:\n" +
+	"DockerfileR\x0edockerfilePath\x12\x1f\n" +
+	"\vbuild_image\x18\x03 \x01(\bR\n" +
+	"buildImage\x12 \n" +
+	"\fload_to_kind\x18\x04 \x01(\bR\n" +
+	"loadToKindBEZ;github.com/openconfig/monax/runtime/kubernetesruntime/proto\x92\x03\x05\xd2>\x02\x10\x03b\beditionsp\xe8\a"
 
 var file_runtime_parameters_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_runtime_parameters_proto_msgTypes = make([]protoimpl.MessageInfo, 5)

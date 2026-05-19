@@ -16,12 +16,13 @@ package kubernetesruntime
 
 import (
 	"bufio"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/netip"
 	"os"
-	"path"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -32,7 +33,8 @@ import (
 
 	"github.com/cenkalti/backoff"
 	"github.com/distribution/reference"
-	dockertypes "github.com/docker/docker/api/types"
+	dockerconfig "github.com/docker/cli/cli/config"
+	dockerbuild "github.com/docker/docker/api/types/build"
 	dockerimagetypes "github.com/docker/docker/api/types/image"
 	dockerclient "github.com/docker/docker/client"
 	dockerarchive "github.com/docker/docker/pkg/archive"
@@ -51,25 +53,33 @@ import (
 )
 
 const (
-	logNameFormat = "%s-%s-%s.json" // name-type-timestamp.json
-	logTimeFormat = "2006-01-02T15:04:05Z"
+	logNameFormat             = "%s-%s-%s.json" // name-type-timestamp.json
+	logTimeFormat             = "2006-01-02T15:04:05Z"
+	dockerBuildLogBufferLines = 50
 )
 
 var (
 	errBuildDockerImage                    = errors.New("build Docker image")
-	errCreateDockerClient                  = errors.New("create Docker client")
 	errCreateKubernetesClient              = errors.New("create Kubernetes client")
 	errDecodeKubernetesComponentParameters = errors.New("decode Kubernetes component parameters")
 	errDependencyNotStarted                = errors.New("dependency not started")
 	errDeploymentHealth                    = errors.New("deployment unhealthy")
+	errExtractKindClusterName              = errors.New("extract kind cluster name")
+	errGetAuthConfig                       = errors.New("get auth config")
 	errGetNodeInternalIP                   = errors.New("get node internal IP")
+	errInvalidBorgComponentParameters      = errors.New("validate Borg component parameters")
 	errInvalidIPAddress                    = errors.New("invalid IP address")
 	errInvalidServiceType                  = errors.New("invalid service type")
+	errLoadDockerConfig                    = errors.New("load Docker config")
+	errLoadDockerImageToKind               = errors.New("load Docker image into kind cluster")
+	errMarshalAuthConfig                   = errors.New("marshal auth config")
 	errNoImage                             = errors.New("no image")
 	errProcessKubeconfig                   = errors.New("process kubeconfig")
 	errProcessVars                         = errors.New("process vars")
+	errPushDockerImage                     = errors.New("push Docker image")
 	errReadDeployment                      = errors.New("read deployment")
 	errReadService                         = errors.New("read service")
+	errParseReference                      = errors.New("parse reference")
 	errServiceHealth                       = errors.New("service unhealthy")
 	errStartDeployment                     = errors.New("start deployment")
 	errStartService                        = errors.New("start service")
@@ -89,10 +99,12 @@ type kubernetesHandler struct {
 	docker  *dockerclient.Client
 	kubectl *kubernetes.Clientset
 
-	mu               sync.Mutex
-	logDir           string
-	serviceType      kubernetescore.ServiceType
-	stateByComponent map[*monax.Component]*kubernetesComponent
+	mu                  sync.Mutex
+	logDir              string
+	serviceType         kubernetescore.ServiceType
+	kubeconfigPath      string
+	imageRepositoryAddr string
+	stateByComponent    map[*monax.Component]*kubernetesComponent
 }
 
 type kubernetesComponent struct {
@@ -109,7 +121,7 @@ type kubernetesTargets struct {
 }
 
 func newKubernetesHandler() *kubernetesHandler {
-	logDir := path.Join(os.TempDir(), "monax-logs")
+	logDir := filepath.Join(os.TempDir(), "monax-logs")
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		log.Warningf("Failed to create log directory: %v", err)
 	}
@@ -133,21 +145,10 @@ func (h *kubernetesHandler) setParameters(parameters *runtimepb.KubernetesRuntim
 	if err != nil {
 		return fmt.Errorf("%w: %v", errCreateKubernetesClient, err)
 	}
+	h.kubeconfigPath = kubernetesParams.GetKubeconfigPath()
+	h.imageRepositoryAddr = kubernetesParams.GetImageRepositoryAddress()
 
-	if kubernetesParams.HasDockerHostUrl() {
-		h.docker, err = dockerclient.NewClientWithOpts(
-			// WithHost will validate the Docker host URL value.
-			dockerclient.WithHost(kubernetesParams.GetDockerHostUrl()),
-			dockerclient.WithTLSClientConfig(
-				filepath.Join(kubernetesParams.GetDockerCertPath(), "ca.pem"),
-				filepath.Join(kubernetesParams.GetDockerCertPath(), "cert.pem"),
-				filepath.Join(kubernetesParams.GetDockerCertPath(), "key.pem"),
-			),
-		)
-		if err != nil {
-			return fmt.Errorf("%w: %v", errCreateDockerClient, err)
-		}
-	}
+	h.newDockerClient(kubernetesParams)
 
 	// With the default service type set to NodePort and this being called during
 	// Initialize(), no other switch case using Service Type should call Fatal as
@@ -165,7 +166,29 @@ func (h *kubernetesHandler) setParameters(parameters *runtimepb.KubernetesRuntim
 	return nil
 }
 
+func (h *kubernetesHandler) newDockerClient(parameters *runtimepb.KubernetesHandlerParameters) {
+	// Docker client uses, in priority order: docker_host_url set in
+	// KubernetesHandlerParameters, DOCKER_HOST environment variable, or the
+	// default value of 'unix:///var/run/docker.sock' for Linux machines.
+	if parameters.HasDockerHostUrl() {
+		os.Setenv("DOCKER_HOST", parameters.GetDockerHostUrl())
+	}
+	if parameters.HasDockerCertPath() {
+		os.Setenv("DOCKER_CERT_PATH", parameters.GetDockerCertPath())
+	}
+	cli, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv, dockerclient.WithAPIVersionNegotiation())
+	if err != nil {
+		// Not returning error since it is not known if Docker is needed.
+		log.Warningf("Create Docker client: %v", err)
+		log.Warningf("Continuing without Docker client")
+		return
+	}
+	h.docker = cli
+}
+
 func (h *kubernetesHandler) state(ctx context.Context, component *monax.Component) *kubernetesComponent {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	state, ok := h.stateByComponent[component]
 	if !ok {
 		log.FatalContextf(ctx, "Unexpected missing state: component %v", component)
@@ -174,11 +197,19 @@ func (h *kubernetesHandler) state(ctx context.Context, component *monax.Componen
 }
 
 func (h *kubernetesHandler) Initialize(ctx context.Context, component *monax.Component) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	parameters := new(runtimepb.KubernetesComponentParameters)
 	if err := component.Parameters().UnmarshalTo(parameters); err != nil {
 		return fmt.Errorf("%w: %v", errDecodeKubernetesComponentParameters, err)
 	}
 
+	if parameters.GetDocker().GetLoadToKind() && h.imageRepositoryAddr != "" {
+		return fmt.Errorf("%w: image repository address is set to %q, but load_to_kind is true. Only one can be set at a time", errInvalidBorgComponentParameters, h.imageRepositoryAddr)
+	}
+
+	// Read and update Deployment object.
 	deploymentPath := component.ResolvePath(parameters.GetDeploymentPath())
 	yamlBytes, err := os.ReadFile(deploymentPath)
 	if err != nil {
@@ -189,6 +220,19 @@ func (h *kubernetesHandler) Initialize(ctx context.Context, component *monax.Com
 		return fmt.Errorf("%w: %v", errUnmarshalDeployment, err)
 	}
 
+	if parameters.HasDocker() {
+		if h.docker == nil {
+			// Trying to build a Docker image without a Docker client will panic.
+			return fmt.Errorf("%w: Docker client is nil", errBuildDockerImage)
+		}
+		h.updateDeploymentContainers(ctx, deployment, parameters.GetDocker().GetLoadToKind())
+
+		if err := h.buildAndLoadImage(ctx, component, parameters.GetDocker(), deployment.Spec.Template.Spec.Containers[0].Image); err != nil {
+			return fmt.Errorf("%w: %v", errBuildDockerImage, err)
+		}
+	}
+
+	// Read and update Service object.
 	servicePath := component.ResolvePath(parameters.GetServicePath())
 	yamlBytes, err = os.ReadFile(servicePath)
 	if err != nil {
@@ -202,18 +246,6 @@ func (h *kubernetesHandler) Initialize(ctx context.Context, component *monax.Com
 		log.WarningContextf(ctx, "Overriding service type to Kubernetes Runtime Parameters value: %v", h.serviceType)
 	}
 	service.Spec.Type = h.serviceType
-
-	if parameters.HasDocker() {
-		if h.docker == nil {
-			return fmt.Errorf("%w: component %v set a Docker context dir, but no Docker credentials were set in the runtime parameters", errBuildDockerImage, component.ID())
-		}
-		if err := h.buildDockerImage(ctx, component, parameters.GetDocker(), deployment.Spec.Template.Spec.Containers[0].Image); err != nil {
-			return fmt.Errorf("%w: %v", errBuildDockerImage, err)
-		}
-	}
-
-	h.mu.Lock()
-	defer h.mu.Unlock()
 	h.stateByComponent[component] = &kubernetesComponent{
 		parameters: parameters,
 		deployment: deployment,
@@ -221,6 +253,41 @@ func (h *kubernetesHandler) Initialize(ctx context.Context, component *monax.Com
 	}
 
 	return nil
+}
+
+func (h *kubernetesHandler) updateDeploymentContainers(ctx context.Context, deployment *kubernetesapps.Deployment, loadToKind bool) {
+	imagePullPolicy := kubernetescore.PullAlways
+	if loadToKind {
+		// `kind` is local and should already have the image.
+		imagePullPolicy = kubernetescore.PullNever
+	}
+
+	for i := range deployment.Spec.Template.Spec.Containers {
+		container := &deployment.Spec.Template.Spec.Containers[i]
+		container.ImagePullPolicy = imagePullPolicy
+
+		if h.imageRepositoryAddr == "" {
+			continue
+		}
+
+		if container.Image == "" {
+			// Not likely to happen unless the user has some complicated setup to
+			// populate the image field later. Trust they know what they are doing.
+			log.WarningContextf(ctx, "Deployment container %q has an empty image", container.Name)
+			continue
+		}
+
+		if strings.HasPrefix(container.Image, h.imageRepositoryAddr) {
+			continue
+		}
+
+		if strings.Contains(container.Image, "/") {
+			log.WarningContextf(ctx, "Repository address in container %q image %q is already set. Skipping override to %q.", container.Name, container.Image, h.imageRepositoryAddr)
+			continue
+		}
+
+		container.Image = fmt.Sprintf("%s/%s", strings.TrimSuffix(h.imageRepositoryAddr, "/"), container.Image)
+	}
 }
 
 func (h *kubernetesHandler) Start(ctx context.Context, component *monax.Component) error {
@@ -564,30 +631,70 @@ func (h *kubernetesHandler) buildDockerImage(ctx context.Context, component *mon
 	if err := h.clearDockerImage(ctx, name); err != nil {
 		return err
 	}
+	log.InfoContextf(ctx, "Building Docker image: %s", name)
 
-	tar, err := dockerarchive.TarWithOptions(component.ResolvePath(dockerParams.GetContextPath()), &dockerarchive.TarOptions{})
+	workingDir, err := os.Getwd()
 	if err != nil {
 		return err
 	}
 
-	response, err := h.docker.ImageBuild(ctx, tar, dockertypes.ImageBuildOptions{
-		Dockerfile:  dockerParams.GetDockerfilePath(),
-		Tags:        []string{name},
-		ForceRemove: true,
+	contextPath := filepath.Join(workingDir, component.ResolvePath(dockerParams.GetContextPath()))
+	log.InfoContextf(ctx, "Creating tar for Docker build from context path: %s", contextPath)
+	tar, err := dockerarchive.TarWithOptions(contextPath, &dockerarchive.TarOptions{})
+	if err != nil {
+		return err
+	}
+
+	buildArgs := make(map[string]*string)
+	for _, env := range []string{"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"} {
+		if val, ok := os.LookupEnv(env); ok {
+			buildArgs[env] = &val
+		}
+	}
+
+	// Add a "latest" tag to the image in addition to the one specified in the
+	// parameters, because this is the tag that will be used by the kind load
+	// command.
+	refName, err := reference.WithName(name)
+	if err != nil {
+		return fmt.Errorf("%w: %v", errParseReference, err)
+	}
+	latestName, err := reference.WithTag(reference.TrimNamed(refName), "latest")
+	if err != nil {
+		return err
+	}
+	// Include the name in case another tag was specified.
+	tags := []string{name, latestName.String()}
+
+	response, err := h.docker.ImageBuild(ctx, tar, dockerbuild.ImageBuildOptions{
+		// This path is relative to the context_path.
+		Dockerfile: dockerParams.GetDockerfilePath(),
+		Tags:       tags,
+		BuildArgs:  buildArgs,
+		Remove:     true,
 	})
 	if err != nil {
 		return err
 	}
 	defer response.Body.Close()
 
+	var lastDockerLines []string
 	scanner := bufio.NewScanner(response.Body)
 	for scanner.Scan() {
-		log.InfoContext(ctx, scanner.Text())
+		line := scanner.Text()
+		log.V(1).InfoContext(ctx, line)
+		lastDockerLines = append(lastDockerLines, line)
+		if len(lastDockerLines) > dockerBuildLogBufferLines {
+			lastDockerLines = lastDockerLines[1:]
+		}
 	}
 
 	if _, err := h.findDockerImage(ctx, name); err != nil {
+		log.ErrorContextf(ctx, "Buffer of last %d lines of Docker build output:\n%s", dockerBuildLogBufferLines, strings.Join(lastDockerLines, "\n"))
+		log.ErrorContextf(ctx, "To see full Docker build output, rerun test with `-args -v 1`")
 		return err
 	}
+	log.InfoContextf(ctx, "Docker image build complete: %s", name)
 
 	return nil
 }
@@ -655,7 +762,7 @@ func (h *kubernetesHandler) logData(ctx context.Context, configMaps corev1.Confi
 		}
 		log.V(1).InfoContextf(ctx, "Config map %q data:\n%s", item.Name, string(jsonBytes))
 		fileName := fmt.Sprintf(logNameFormat, item.Name, "configmap", time.Now().Format(logTimeFormat))
-		writeLogFile(ctx, path.Join(h.logDir, fileName), jsonBytes)
+		writeLogFile(ctx, filepath.Join(h.logDir, fileName), jsonBytes)
 	}
 }
 
@@ -682,7 +789,7 @@ func (h *kubernetesHandler) logDeployment(ctx context.Context, deployments appsv
 		}
 		log.V(1).InfoContextf(ctx, "Deployment %q spec:\n%s", name, string(jsonBytes))
 		fileName := fmt.Sprintf(logNameFormat, item.Name, "deployment", time.Now().Format(logTimeFormat))
-		writeLogFile(ctx, path.Join(h.logDir, fileName), jsonBytes)
+		writeLogFile(ctx, filepath.Join(h.logDir, fileName), jsonBytes)
 	}
 }
 
@@ -727,4 +834,105 @@ func formatServiceError(ctx context.Context, service *kubernetescore.Service, ku
 		}
 	}
 	return fmt.Errorf("%w: retryable error for service %s", errServiceHealth, service.GetName())
+}
+
+// extractKindClusterName extracts the kind cluster name from the given kubeconfig file.
+func extractKindClusterName(kubeconfigPath string) (string, error) {
+	config, err := clientcmd.LoadFromFile(os.ExpandEnv(kubeconfigPath))
+	if err != nil {
+		return "", err
+	}
+	contextName := config.CurrentContext
+	if strings.HasPrefix(contextName, "kind-") {
+		return strings.TrimPrefix(contextName, "kind-"), nil
+	}
+	return contextName, nil
+}
+
+// buildAndLoadImage builds a Docker image and optionally loads it to a local kind cluster.
+func (h *kubernetesHandler) buildAndLoadImage(ctx context.Context, component *monax.Component, dockerParams *runtimepb.DockerBuildParameters, imageName string) error {
+	if !dockerParams.GetBuildImage() {
+		return nil
+	}
+	if err := h.buildDockerImage(ctx, component, dockerParams, imageName); err != nil {
+		return err
+	}
+
+	if dockerParams.GetLoadToKind() {
+		log.InfoContextf(ctx, "Loading image %s to kind cluster...", imageName)
+		clusterName, err := extractKindClusterName(h.kubeconfigPath)
+		if err != nil {
+			return fmt.Errorf("%w: %v", errExtractKindClusterName, err)
+		}
+		cmd := exec.CommandContext(ctx, "kind", "load", "docker-image", imageName, "--name", clusterName)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("%w: %v, output: %s", errLoadDockerImageToKind, err, string(output))
+		}
+		return nil
+	}
+
+	return h.pushDockerImage(ctx, imageName)
+}
+
+func (h *kubernetesHandler) registryAuth(ctx context.Context, imageName string) (string, error) {
+	cfg, err := dockerconfig.Load(dockerconfig.Dir())
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", errLoadDockerConfig, err)
+	}
+
+	// Auth is by registry only, so remove repository and path.
+	repo, _, _ := strings.Cut(imageName, "/")
+	if h.imageRepositoryAddr != "" {
+		repo, _, _ = strings.Cut(h.imageRepositoryAddr, "/")
+	}
+
+	authConfig, err := cfg.GetAuthConfig(repo)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", errGetAuthConfig, err)
+	}
+
+	authBytes, err := json.Marshal(authConfig)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", errMarshalAuthConfig, err)
+	}
+
+	return base64.URLEncoding.EncodeToString(authBytes), nil
+}
+
+func (h *kubernetesHandler) pushDockerImage(ctx context.Context, imageName string) error {
+	log.InfoContextf(ctx, "Pushing Docker image: %s", imageName)
+
+	authStr, err := h.registryAuth(ctx, imageName)
+	if err != nil {
+		return err
+	}
+
+	response, err := h.docker.ImagePush(ctx, imageName, dockerimagetypes.PushOptions{
+		RegistryAuth: authStr,
+	})
+	if err != nil {
+		return fmt.Errorf("%w: %s: %v", errPushDockerImage, imageName, err)
+	}
+	defer response.Close()
+
+	// Consume the response body.
+	scanner := bufio.NewScanner(response)
+	for scanner.Scan() {
+		line := scanner.Text()
+		log.V(1).InfoContext(ctx, line)
+		var msg map[string]any
+		if err := json.Unmarshal([]byte(line), &msg); err != nil {
+			log.WarningContextf(ctx, "Failed to unmarshal Docker push output line: %v", err)
+			continue
+		}
+		errDetail, ok := msg["errorDetail"].(map[string]any)
+		if !ok {
+			// No error to log.
+			continue
+		}
+		if errStr, ok := errDetail["message"].(string); ok && errStr != "" {
+			return errors.New(errStr)
+		}
+	}
+	return scanner.Err()
 }

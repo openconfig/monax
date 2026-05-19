@@ -231,7 +231,7 @@ const file_multiplication_proto_rawDesc = "" +
 	"\x10MultiplyResponse\x12\x18\n" +
 	"\aproduct\x18\x01 \x01(\x03R\aproduct2{\n" +
 	"\x0eMultiplication\x12i\n" +
-	"\bMultiply\x12-.monax.example.multiplication.MultiplyRequest\x1a..monax.example.multiplication.MultiplyResponseBEZ;github.com/openconfig/monax/example/math/multiplication/api\x92\x03\x05\xd2>\x02\x10\x03b\beditionsp\xe9\a"
+	"\bMultiply\x12-.monax.example.multiplication.MultiplyRequest\x1a..monax.example.multiplication.MultiplyResponseBEZ;github.com/openconfig/monax/example/math/multiplication/api\x92\x03\x05\xd2>\x02\x10\x03b\beditionsp\xe8\a"
 
 var file_multiplication_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_multiplication_proto_goTypes = []any{

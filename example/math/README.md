@@ -5,7 +5,7 @@ corresponding Go test that demonstrate core Monax concepts and functionality.
 
 ## Introduction
 
-[`math_test.go`](math_test.go) is an example of the lifecycle of a test that
+[`math_test.go`](test/math_test.go) is an example of the lifecycle of a test that
 needs to talk to running services. It is a Go test that uses Monax to start a
 SUT consisting of simple gRPC servers in a Kubernetes cluster. The servers
 provide simple math operations, and the test makes calls to those servers to
@@ -32,12 +32,12 @@ The test has three phases:
 
 Three configuration files determine how Monax constructs the SUT:
 
-*   [`abstract_sut.txtpb`](abstract_sut.txtpb): The interfaces required by the
+*   [`abstract_sut.txtpb`](test/abstract_sut.txtpb): The interfaces required by the
     test. Monax will find components that provide these interfaces and make them
     available to the test.
-*   [`kubernetes_library.txtpb`](kubernetes_library.txtpb): The components that
+*   [`kubernetes_library.txtpb`](test/kubernetes_library.txtpb): The components that
     Monax can use to fulfill the required interfaces.
-*   [`kubernetes_runtime_parameters.txtpb`](kubernetes_runtime_parameters.txtpb):
+*   [`kubernetes_runtime_parameters.txtpb`](test/kubernetes_runtime_parameters.txtpb):
     Configures the Kubernetes runtime in Monax with information like Kubernetes
     config path.
 
@@ -53,101 +53,51 @@ You must have:
     images
 *   Some way to push container images to your cluster
 
-Set the name of your kind Kubernetes cluster:
+For simplicity, set a variable that we will reuse in below commands to ensure
+you're in the correct directory.
 
 ```shell
-export KIND_CLUSTER="monax"
+export MONAX_ROOT_DIR=/path/to/monax
 ```
 
-> ❗ **IMPORTANT**: Use the actual name of your Kubernetes cluster.
+## Running the test
 
-## Running the test via script
-
-The [`math_test_kubernetes.sh`](math_test_kubernetes.sh) script builds the
-Docker images, loads them into the kind Kubernetes cluster, and runs the test.
-
-### Prerequisites
-
-In addition to the general prerequisites above, the script has additional
-requirements:
-
-*   [Docker](https://www.docker.com/) must be installed and the `docker` command
-    must be available
-*   [kind](https://kind.sigs.k8s.io/) must be installed and the `kind` command
-    must be available
-
-### Run math_test_kubernetes.sh
-
-To run the script, simply call it:
-
-```shell
-./example/math/math_test_kubernetes.sh
-```
-
-The script goes through a number of stages:
-
-*   Build Docker images
-*   Push the images to your kind Kubernetes cluster
-*   Run the math test
-
-At the end of the test, you should see `go test` report "ok" and then the clean
-up steps:
-
-```text
-...  # Many lines of the test case names and their status.
-PASS
-ok      command-line-arguments  13.202s
-```
-
-> ⓘ **NOTE**: If your local dev environment uses a proxy server, run the script
-> with `env` variables `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` exported.
-> See https://ipinfo.io/bogon for the full list of Bogon IPv4 and IPv6 addresses
-> to include in `NO_PROXY`.
-
-## Running the test manually
-
-To run the test manually, do the following:
-
-### 1. Build the example/math images
-
-Use the `docker` CLI to build each of the math example images:
-
-```shell
-for image in addition subtraction multiplication division; do
-  docker build \
-    --file "example/math/${image}/deploy/Dockerfile" \
-    --tag "${image}:latest" \
-    .
-done
-```
-
-> ⓘ **NOTE**: If you don't use `docker`, use your normal workflow commands to
-> build the images.
-
-### 2. Push the example/math images
-
-Use the `kind` CLI to push each of the images to your Kubernetes cluster:
-
-```shell
-for image in addition subtraction multiplication division; do
-  kind load docker-image "${image}" --name "${KIND_CLUSTER}"
-done
-```
-
-> ⓘ **NOTE**: If you don't use `kind`, use your normal workflow commands to push
-> images so that they are available to your cluster.
-
-### 3. Run math_test.go
-
-Finally, run the test using the included abstract SUT, library, and runtime
+Run the test using the included abstract SUT, library, and runtime
 parameters:
 
 ```shell
-go test -v example/math/math_test.go \
+cd "${MONAX_ROOT_DIR}/example/math/test"
+go test -v math_test.go \
   --abstract_sut=abstract_sut.txtpb \
   --library=kubernetes_library.txtpb \
   --runtime_parameters=kubernetes_runtime_parameters.txtpb \
   --alsologtostderr
+```
+
+### Configuring an Image Repository Address
+
+By default, Monax loads images locally into the specified kind cluster. If you
+would instead prefer to push Docker images to a container registry (for
+instance, Google Container Registry or Artifact Registry), configure the
+`image_repository_address` field in the
+[runtime parameters file](test/kubernetes_runtime_parameters.txtpb):
+
+```text proto
+kubernetes {
+  image_repository_address: "gcr.io/my-project/monax-examples"
+}
+```
+
+When specifying this option, Monax will push images to the given registry using
+your local Docker credentials (`~/.docker/config.json`) and rewrite the
+deployment templates to reference images from that location.
+
+You will also need to disable the local kind loading for each service component:
+
+```shell
+for image in addition subtraction multiplication division; do
+  printf ',s/load_to_kind: true/load_to_kind: false/g\nw\n' | ed -s "${MONAX_ROOT_DIR}/example/math/${image}/deploy/kubernetes.txtpb"
+done
 ```
 
 At the end of the test, you should see `go test` report "ok" and then the clean
@@ -170,10 +120,18 @@ The math example services use gRPC as the interface. To make manual calls, we
 need a CLI capable of using that protocol. For simplicity, we recommend the
 use of [grpcurl](https://github.com/fullstorydev/grpcurl).
 
+* Set the name of your kind Kubernetes cluster
+
+  ```shell
+  export KIND_CLUSTER="monax"
+  ```
+
+  > ❗ **IMPORTANT**: Use the actual name of your Kubernetes cluster.
+
 * Install [grpcurl](https://github.com/fullstorydev/grpcurl)
 
   ```shell
-  go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
+  go install github.com/fullstorydev/grpcurl/cmd/grpcurl@master
   ```
 
 * Build the Monax CLI
@@ -183,18 +141,17 @@ use of [grpcurl](https://github.com/fullstorydev/grpcurl).
   the SUT and to get the endpoints `grpcurl` will be calling to.
 
   ```shell
+  cd "${MONAX_ROOT_DIR}"
   go build -o monax_cli ./cli/
   ```
-
-> ⓘ **NOTE**: If the below steps have already been done from above, they do not
-> need to be run again.
 
 * Build the example images with Docker
 
   ```shell
+  cd "${MONAX_ROOT_DIR}/example/math"
   for image in addition subtraction multiplication division; do
     docker build \
-      --file "example/math/${image}/deploy/Dockerfile" \
+      --file "${image}/deploy/Dockerfile" \
       --tag "${image}:latest" \
       .
   done
@@ -203,6 +160,7 @@ use of [grpcurl](https://github.com/fullstorydev/grpcurl).
 * Upload images to your kind Kubernetes cluster
 
   ```shell
+  cd "${MONAX_ROOT_DIR}/example/math"
   for image in addition subtraction multiplication division; do
     kind load docker-image "${image}" --name "${KIND_CLUSTER}"
   done
@@ -216,14 +174,12 @@ service addresses and other functionality.
 Use the Monax CLI to bring up the SUT for testing. Notice that the flag values
 are the same as running `math_test.go` above.
 
-> ⓘ **NOTE**: Run in the `monax` directory. This will continuously run after
-> each command.
-
 ```shell
-./monax_cli \
-  --abstract_sut=example/math/abstract_sut.txtpb \
-  --library=example/math/kubernetes_library.txtpb \
-  --runtime_parameters=example/math/kubernetes_runtime_parameters.txtpb
+cd "${MONAX_ROOT_DIR}/example/math/test"
+../../../monax_cli \
+  --abstract_sut=abstract_sut.txtpb \
+  --library=kubernetes_library.txtpb \
+  --runtime_parameters=kubernetes_runtime_parameters.txtpb
 ```
 
 Start the SUT with the CLI. The `start` command will try to bring up all
@@ -262,7 +218,7 @@ Open a new terminal instance and run the following command:
 grpcurl \
   -plaintext \
   -d '{"augend": 5, "addend": 2}' \
-  192.168.8.50:50051 \
+  192.168.8.2:30754 \
   monax.example.addition.Addition/Add
 ```
 
@@ -270,7 +226,8 @@ Breakdown of the flags used:
 
 * `-plaintext` - Use plain-text HTTP/2 when connecting to server (no TLS).
 * `-d` - Data for request contents. In this case, a text proto string of the
-  AddRequest from [addition/api/addition.proto](addition/api/addition.proto).
+  AddRequest from
+  [addition/api/addition.proto](addition/api/addition.proto).
 * `192.168.8.50:50051` - This is the `host:port` returned from the `targets`
   command above.
 * `monax.example.addition.Addition/Add` - A `rpc` endpoint defined for the
