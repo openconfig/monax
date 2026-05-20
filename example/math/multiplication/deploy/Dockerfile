@@ -42,11 +42,15 @@ ARG HTTP_PROXY
 ARG HTTPS_PROXY
 ARG NO_PROXY
 ENV HTTP_PROXY=${HTTP_PROXY}
+ENV http_proxy=${HTTP_PROXY}
 ENV HTTPS_PROXY=${HTTPS_PROXY}
+ENV https_proxy=${HTTPS_PROXY}
 ENV NO_PROXY=${NO_PROXY}
 ENV no_proxy=${NO_PROXY}
-RUN if [ -n "${HTTP_PROXY}" || -n "${HTTPS_PROXY}" ]; then \
-        echo "Acquire::http::Proxy \"${HTTP_PROXY}\";" >> /etc/apt/apt.conf.d/proxy.conf && \
+RUN if [ -n "${HTTP_PROXY}" ]; then \
+        echo "Acquire::http::Proxy \"${HTTP_PROXY}\";" >> /etc/apt/apt.conf.d/proxy.conf; \
+    fi; \
+    if [ -n "${HTTPS_PROXY}" ]; then \
         echo "Acquire::https::Proxy \"${HTTPS_PROXY}\";" >> /etc/apt/apt.conf.d/proxy.conf; \
     fi
 
@@ -69,7 +73,7 @@ RUN go mod tidy
 RUN go mod download
 
 RUN mkdir /app/out
-RUN cgo_enabled=0 goos=linux go build -o /app/out ./...
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/out ./...
 
 USER 1000:1000
 

@@ -60,10 +60,10 @@ that the health service responds appropriately.
 
 ## Getting Started
 
-The [math test example](example/math/math_test.go) uses the Kubernetes runtime
-to start simple gRPC servers in an existing Kubernetes cluster. The servers
-provide simple math operations. The test makes calls to those servers to verify
-their functionality.
+The [math test example](example/math/test/math_test.go) uses the Kubernetes
+runtime to start simple gRPC servers in an existing Kubernetes cluster. The
+servers provide simple math operations. The test makes calls to those servers to
+verify their functionality.
 
 For more information on how to run the math test example, please see the
 [README](example/math/README.md).
