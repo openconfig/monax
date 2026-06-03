@@ -218,7 +218,7 @@ Open a new terminal instance and run the following command:
 grpcurl \
   -plaintext \
   -d '{"augend": 5, "addend": 2}' \
-  192.168.8.2:30754 \
+  192.168.8.2:50051 \
   monax.example.addition.Addition/Add
 ```
 

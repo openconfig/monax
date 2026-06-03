@@ -17,6 +17,7 @@ edition = "2023";
 package monax.kubernetes;
 
 import "google/protobuf/go_features.proto";
+import "proto/monax.proto";
 
 option features.(pb.go).api_level = API_OPAQUE;
 option go_package = "github.com/openconfig/monax/runtime/kubernetesruntime/proto";
@@ -83,6 +84,8 @@ message KubernetesComponentParameters {
   // Only used if wait_for_service is true.
   // Defaults to 5 minutes if unset.
   int64 wait_for_service_timeout_sec = 8 [default = 300];  // 5min
+
+  map<string, monax.Interface> interface_by_port_name = 9;
 }
 
 message DockerBuildParameters {

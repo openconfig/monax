@@ -49,6 +49,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/yaml"
 
+	monaxpb "github.com/openconfig/monax/proto"
 	runtimepb "github.com/openconfig/monax/runtime/kubernetesruntime/proto"
 )
 
@@ -108,10 +109,11 @@ type kubernetesHandler struct {
 }
 
 type kubernetesComponent struct {
-	parameters *runtimepb.KubernetesComponentParameters
-	deployment *kubernetesapps.Deployment
-	service    *kubernetescore.Service
-	started    bool
+	parameters          *runtimepb.KubernetesComponentParameters
+	deployment          *kubernetesapps.Deployment
+	service             *kubernetescore.Service
+	started             bool
+	interfaceByPortName map[string]*monaxpb.Interface
 }
 
 type kubernetesTargets struct {
@@ -247,9 +249,10 @@ func (h *kubernetesHandler) Initialize(ctx context.Context, component *monax.Com
 	}
 	service.Spec.Type = h.serviceType
 	h.stateByComponent[component] = &kubernetesComponent{
-		parameters: parameters,
-		deployment: deployment,
-		service:    service,
+		parameters:          parameters,
+		deployment:          deployment,
+		service:             service,
+		interfaceByPortName: parameters.GetInterfaceByPortName(),
 	}
 
 	return nil
@@ -464,24 +467,41 @@ func (h *kubernetesHandler) Targets(component *monax.Component) monax.Targets {
 	return &kubernetesTargets{handler: h, component: component}
 }
 
+func (t *kubernetesTargets) portForInterface(ctx context.Context, intfSelector func(*monaxpb.Interface) bool) string {
+	state := t.handler.state(ctx, t.component)
+	for port, intf := range state.interfaceByPortName {
+		if intfSelector(intf) {
+			return port
+		}
+	}
+	return ""
+}
+
 func (t *kubernetesTargets) DHCP(ctx context.Context, serviceName string) (monax.Target, error) {
-	return t.getServiceIP(ctx)
+	portName := t.portForInterface(ctx, monax.DHCPSelector(serviceName))
+	return t.getServiceIP(ctx, portName)
 }
 
 func (t *kubernetesTargets) GRPC(ctx context.Context, serviceName string) (monax.Target, error) {
-	return t.getServiceIP(ctx)
+	portName := t.portForInterface(ctx, monax.GRPCSelector(serviceName))
+	return t.getServiceIP(ctx, portName)
 }
 
 func (t *kubernetesTargets) HTTP(ctx context.Context, serviceName string) (monax.Target, error) {
-	return t.http(ctx, false)
+	return t.http(ctx, serviceName, false)
 }
 
 func (t *kubernetesTargets) HTTPS(ctx context.Context, serviceName string) (monax.Target, error) {
-	return t.http(ctx, true)
+	return t.http(ctx, serviceName, true)
 }
 
-func (t *kubernetesTargets) http(ctx context.Context, useHTTPS bool) (monax.Target, error) {
-	ip, err := t.getServiceIP(ctx)
+func (t *kubernetesTargets) http(ctx context.Context, serviceName string, useHTTPS bool) (monax.Target, error) {
+	selector := monax.HTTPSelector(serviceName)
+	if useHTTPS {
+		selector = monax.HTTPSSelector(serviceName)
+	}
+	portName := t.portForInterface(ctx, selector)
+	ip, err := t.getServiceIP(ctx, portName)
 	if err != nil {
 		return monax.EmptyTarget, err
 	}
@@ -551,7 +571,7 @@ func getNodeInternalIP(ctx context.Context, service *kubernetescore.Service, kub
 	return "", fmt.Errorf("missing node internal IP")
 }
 
-func (t *kubernetesTargets) getServiceIP(ctx context.Context) (monax.Target, error) {
+func (t *kubernetesTargets) getServiceIP(ctx context.Context, portName string) (monax.Target, error) {
 	state := t.handler.state(ctx, t.component)
 	if !state.started {
 		// The component failed to start so don't wait for it to become healthy.
@@ -574,13 +594,35 @@ func (t *kubernetesTargets) getServiceIP(ctx context.Context) (monax.Target, err
 	switch serviceUpdate.Spec.Type {
 	case kubernetescore.ServiceTypeLoadBalancer:
 		ipAddress = serviceUpdate.Status.LoadBalancer.Ingress[0].IP
-		port = serviceUpdate.Spec.Ports[0].Port
+		var matchPort int32
+		lowerPortName := strings.ToLower(portName)
+		for _, p := range serviceUpdate.Spec.Ports {
+			if strings.ToLower(p.Name) == lowerPortName {
+				matchPort = p.Port
+				break
+			}
+		}
+		if matchPort == 0 {
+			matchPort = serviceUpdate.Spec.Ports[0].Port
+		}
+		port = matchPort
 	case kubernetescore.ServiceTypeNodePort:
 		ipAddress, err = getNodeInternalIP(ctx, serviceUpdate, t.handler.kubectl)
 		if err != nil {
 			return monax.EmptyTarget, fmt.Errorf("%w: %v", errGetNodeInternalIP, err)
 		}
-		port = serviceUpdate.Spec.Ports[0].NodePort
+		var matchPort int32
+		lowerPortName := strings.ToLower(portName)
+		for _, p := range serviceUpdate.Spec.Ports {
+			if strings.ToLower(p.Name) == lowerPortName {
+				matchPort = p.NodePort
+				break
+			}
+		}
+		if matchPort == 0 {
+			matchPort = serviceUpdate.Spec.Ports[0].NodePort
+		}
+		port = matchPort
 	default:
 		return monax.EmptyTarget, fmt.Errorf("%w: %v", errInvalidServiceType, serviceUpdate.Spec.Type)
 	}
