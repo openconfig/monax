@@ -6,6 +6,6 @@
 
 # These owners will be the default owners for everything in
 # the repo. Unless a later match takes precedence,
-# @openconfig/featureprofiles-approvers will be requested for
+# @openconfig/monax-maintainers will be requested for
 # review when someone opens a pull request.
 *       @openconfig/monax-maintainers
