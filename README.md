@@ -1,4 +1,6 @@
 [![CI](https://github.com/openconfig/monax/actions/workflows/ci.yaml/badge.svg)](https://github.com/openconfig/monax/actions/workflows/ci.yaml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/openconfig/monax)](https://goreportcard.com/report/github.com/openconfig/monax)
+[![Go Reference](https://pkg.go.dev/badge/github.com/openconfig/monax.svg)](https://pkg.go.dev/github.com/openconfig/monax)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 # Monax
