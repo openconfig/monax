@@ -34,11 +34,9 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/distribution/reference"
 	dockerconfig "github.com/docker/cli/cli/config"
-	dockerbuild "github.com/docker/docker/api/types/build"
-	dockerimagetypes "github.com/docker/docker/api/types/image"
-	dockerclient "github.com/docker/docker/client"
-	dockerarchive "github.com/docker/docker/pkg/archive"
 	log "github.com/golang/glog"
+	dockerarchive "github.com/moby/go-archive"
+	dockerclient "github.com/moby/moby/client"
 	"github.com/openconfig/monax"
 	kubernetesapps "k8s.io/api/apps/v1"
 	kubernetescore "k8s.io/api/core/v1"
@@ -178,7 +176,7 @@ func (h *kubernetesHandler) newDockerClient(parameters *runtimepb.KubernetesHand
 	if parameters.HasDockerCertPath() {
 		os.Setenv("DOCKER_CERT_PATH", parameters.GetDockerCertPath())
 	}
-	cli, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv, dockerclient.WithAPIVersionNegotiation())
+	cli, err := dockerclient.New(dockerclient.FromEnv)
 	if err != nil {
 		// Not returning error since it is not known if Docker is needed.
 		log.Warningf("Create Docker client: %v", err)
@@ -708,7 +706,7 @@ func (h *kubernetesHandler) buildDockerImage(ctx context.Context, component *mon
 	// Include the name in case another tag was specified.
 	tags := []string{name, latestName.String()}
 
-	response, err := h.docker.ImageBuild(ctx, tar, dockerbuild.ImageBuildOptions{
+	response, err := h.docker.ImageBuild(ctx, tar, dockerclient.ImageBuildOptions{
 		// This path is relative to the context_path.
 		Dockerfile: dockerParams.GetDockerfilePath(),
 		Tags:       tags,
@@ -750,7 +748,7 @@ func (h *kubernetesHandler) clearDockerImage(ctx context.Context, name string) e
 		return err
 	}
 
-	_, err = h.docker.ImageRemove(ctx, imageID, dockerimagetypes.RemoveOptions{Force: true})
+	_, err = h.docker.ImageRemove(ctx, imageID, dockerclient.ImageRemoveOptions{Force: true})
 	if err != nil {
 		return err
 	}
@@ -759,12 +757,12 @@ func (h *kubernetesHandler) clearDockerImage(ctx context.Context, name string) e
 }
 
 func (h *kubernetesHandler) findDockerImage(ctx context.Context, wantName string) (string, error) {
-	imageList, err := h.docker.ImageList(ctx, dockerimagetypes.ListOptions{})
+	imageList, err := h.docker.ImageList(ctx, dockerclient.ImageListOptions{})
 	if err != nil {
 		return "", err
 	}
 
-	for _, image := range imageList {
+	for _, image := range imageList.Items {
 		for _, ref := range image.RepoTags {
 			matches := reference.ReferenceRegexp.FindStringSubmatch(ref)
 			if matches == nil {
@@ -949,7 +947,7 @@ func (h *kubernetesHandler) pushDockerImage(ctx context.Context, imageName strin
 		return err
 	}
 
-	response, err := h.docker.ImagePush(ctx, imageName, dockerimagetypes.PushOptions{
+	response, err := h.docker.ImagePush(ctx, imageName, dockerclient.ImagePushOptions{
 		RegistryAuth: authStr,
 	})
 	if err != nil {
