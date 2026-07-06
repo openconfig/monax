@@ -20,7 +20,7 @@ require (
 	github.com/openconfig/monax/example/math/division v0.0.0-00010101000000-000000000000
 	github.com/openconfig/monax/example/math/multiplication v0.0.0-00010101000000-000000000000
 	github.com/openconfig/monax/example/math/subtraction v0.0.0-00010101000000-000000000000
-	golang.org/x/net v0.52.0
+	golang.org/x/net v0.55.0
 	google.golang.org/protobuf v1.36.11
 )
 
@@ -76,9 +76,9 @@ require (
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	golang.org/x/exp v0.0.0-20241210194714-1829a127f884 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
-	golang.org/x/term v0.41.0 // indirect
-	golang.org/x/text v0.35.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/term v0.43.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9 // indirect
 	google.golang.org/grpc v1.80.0 // indirect
