@@ -26,6 +26,7 @@ parameters: {
       service_type: SERVICE_TYPE_NODE_PORT
       namespace_or_prefix: "monax-math"
       create_unique_namespace: true
+      create_unique_name: true
     }
   }
 }

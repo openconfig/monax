@@ -70,6 +70,11 @@ message KubernetesHandlerParameters {
   // random 8 character UUID. When false, Monax will use the `default`
   // namespace.
   bool create_unique_namespace = 7 [default = false];
+
+  // When true, generates an 8-character UUID suffix appended to the names,
+  // selectors, and ConfigMap references of all Kubernetes objects
+  // (Deployments, Services, ConfigMaps) managed by this handler.
+  bool create_unique_name = 8;
 }
 
 message KubernetesComponentParameters {

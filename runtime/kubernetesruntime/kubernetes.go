@@ -108,6 +108,10 @@ type kubernetesHandler struct {
 	kubeconfigPath      string
 	imageRepositoryAddr string
 
+	// nameSuffix is a random string appended to the names of deployed objects to
+	// avoid name collisions of parallel runs.
+	nameSuffix string
+
 	createUniqueNamespace bool
 	configuredNamespace   string
 	namespace             string
@@ -158,6 +162,10 @@ func (h *kubernetesHandler) setParameters(parameters *runtimepb.KubernetesRuntim
 	}
 	h.kubeconfigPath = kubernetesParams.GetKubeconfigPath()
 	h.imageRepositoryAddr = kubernetesParams.GetImageRepositoryAddress()
+
+	if kubernetesParams.GetCreateUniqueName() {
+		h.nameSuffix = uuid.New().String()[:8]
+	}
 
 	h.createUniqueNamespace = kubernetesParams.GetCreateUniqueNamespace()
 	h.configuredNamespace = kubernetesParams.GetNamespaceOrPrefix()
@@ -258,6 +266,8 @@ func (h *kubernetesHandler) Initialize(ctx context.Context, component *monax.Com
 		log.WarningContextf(ctx, "Overriding service type to Kubernetes Runtime Parameters value: %v", h.serviceType)
 	}
 	service.Spec.Type = h.serviceType
+
+	h.applyUniqueNameSuffix(deployment, service)
 	h.stateByComponent[component] = &kubernetesComponent{
 		parameters:          parameters,
 		deployment:          deployment,
@@ -266,6 +276,104 @@ func (h *kubernetesHandler) Initialize(ctx context.Context, component *monax.Com
 	}
 
 	return nil
+}
+
+func (h *kubernetesHandler) applyUniqueNameSuffix(deployment *kubernetesapps.Deployment, service *kubernetescore.Service) {
+	if h.nameSuffix == "" {
+		return
+	}
+	const labelKey = "app.kubernetes.io/instance"
+	suffix := "-" + h.nameSuffix
+
+	// Set the name and label with a unique suffix to avoid name collisions of
+	// parallel runs.
+	origDeploymentName := deployment.Name
+	deployment.Name += suffix
+	if deployment.Labels == nil {
+		deployment.Labels = make(map[string]string)
+	}
+	if deployment.Labels[labelKey] != "" {
+		deployment.Labels[labelKey] += suffix
+	} else {
+		deployment.Labels[labelKey] = deployment.Name
+	}
+
+	// The Selector limits which Pods can be controlled by the Deployment,
+	// preventing the teardown of one Deployment from affecting another Deployment
+	// from a parallel run.
+	if deployment.Spec.Selector == nil {
+		deployment.Spec.Selector = &kubernetesmeta.LabelSelector{}
+	}
+	if deployment.Spec.Selector.MatchLabels == nil {
+		deployment.Spec.Selector.MatchLabels = make(map[string]string)
+	}
+	if deployment.Spec.Selector.MatchLabels[labelKey] != "" {
+		deployment.Spec.Selector.MatchLabels[labelKey] += suffix
+	} else {
+		deployment.Spec.Selector.MatchLabels[labelKey] = deployment.Name
+	}
+
+	// Sets the labels for the Pods created by the Deployment. This must match
+	// the Selector above.
+	if deployment.Spec.Template.Labels == nil {
+		deployment.Spec.Template.Labels = make(map[string]string)
+	}
+	if deployment.Spec.Template.Labels[labelKey] != "" {
+		deployment.Spec.Template.Labels[labelKey] += suffix
+	} else {
+		deployment.Spec.Template.Labels[labelKey] = deployment.Name
+	}
+
+	for i := range deployment.Spec.Template.Spec.Containers {
+		container := &deployment.Spec.Template.Spec.Containers[i]
+		container.Name += suffix
+		for j := range container.Env {
+			env := &container.Env[j]
+			if env.ValueFrom != nil && env.ValueFrom.ConfigMapKeyRef != nil {
+				if env.ValueFrom.ConfigMapKeyRef.Name == origDeploymentName {
+					// In startDeployment, we create a ConfigMap with the same name as the
+					// Deployment.
+					env.ValueFrom.ConfigMapKeyRef.Name = deployment.Name
+				}
+			}
+		}
+		for j := range container.EnvFrom {
+			envFrom := &container.EnvFrom[j]
+			if envFrom.ConfigMapRef != nil {
+				if envFrom.ConfigMapRef.Name == origDeploymentName {
+					envFrom.ConfigMapRef.Name = deployment.Name
+				}
+			}
+		}
+	}
+
+	for i := range deployment.Spec.Template.Spec.Volumes {
+		volume := &deployment.Spec.Template.Spec.Volumes[i]
+		if volume.ConfigMap != nil {
+			if volume.ConfigMap.Name == origDeploymentName {
+				volume.ConfigMap.Name = deployment.Name
+			}
+		}
+	}
+
+	service.Name += suffix
+	if service.Labels == nil {
+		service.Labels = make(map[string]string)
+	}
+	if service.Labels[labelKey] != "" {
+		service.Labels[labelKey] += suffix
+	} else {
+		service.Labels[labelKey] = service.Name
+	}
+
+	if service.Spec.Selector == nil {
+		service.Spec.Selector = make(map[string]string)
+	}
+	if service.Spec.Selector[labelKey] != "" {
+		service.Spec.Selector[labelKey] += suffix
+	} else {
+		service.Spec.Selector[labelKey] = service.Name
+	}
 }
 
 func (h *kubernetesHandler) updateDeploymentContainers(ctx context.Context, deployment *kubernetesapps.Deployment, loadToKind bool) {
@@ -344,6 +452,11 @@ func (h *kubernetesHandler) startDeployment(ctx context.Context, deployment *kub
 	}
 	configMap.SetName(deployment.Name)
 	configMap.SetNamespace(deployment.Namespace)
+
+	// Not directly needed, but good for accounting if users list all objects
+	// in a namespace with a given label.
+	configMap.SetLabels(deployment.Labels)
+
 	createdConfigMaps := h.kubectl.CoreV1().ConfigMaps(deployment.Namespace)
 	if _, err := createdConfigMaps.Create(ctx, configMap, kubernetesmeta.CreateOptions{}); err != nil {
 		return nil, err
